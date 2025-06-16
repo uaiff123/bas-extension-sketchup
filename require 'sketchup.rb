@@ -3,7 +3,7 @@ module MyFacePusher
 
   class FacePushTool
     def initialize(dialog)
-      @distance = 100.0
+      @distance = 0.1 # Changed default distance to 0.1 meter
       @direction = 1
       @dialog = dialog
       @active = false
@@ -86,7 +86,7 @@ module MyFacePusher
         push_distance = @distance * @direction
         picked.pushpull(push_distance)
         model.commit_operation
-        @dialog.execute_script("sketchup.showSuccess('Push/Pull #{@distance} มม. สำเร็จ');")
+        @dialog.execute_script("sketchup.showSuccess('Push/Pull #{@distance} เมตร สำเร็จ');") # Changed text to meters
       rescue => e
         model.abort_operation
         @dialog.execute_script("sketchup.showError('เกิดข้อผิดพลาด: #{e.message}');")
@@ -155,7 +155,7 @@ module MyFacePusher
         Sketchup.set_status_text("โหมดเคลื่อนย้าย - คลิกที่วัตถุที่ต้องการเคลื่อนย้าย", SB_PROMPT)
       else
         @moving_entity = nil
-        Sketchup.set_status_text("Face Pusher Tool: #{@distance} มม., ทิศทาง #{@direction > 0 ? '+' : '-'}", SB_PROMPT)
+        Sketchup.set_status_text("Face Pusher Tool: #{@distance} เมตร, ทิศทาง #{@direction > 0 ? '+' : '-'}", SB_PROMPT) # Changed text to meters
       end
       
       update_ui
@@ -200,7 +200,7 @@ module MyFacePusher
       
       dir_str = @direction > 0 ? '+' : '-'
       status = @move_mode ? "โหมดเคลื่อนย้าย - คลิกที่วัตถุที่ต้องการเคลื่อนย้าย" : 
-               "Face Push Tool: #{@distance} มม., ทิศทาง #{dir_str}"
+                           "Face Push Tool: #{@distance} เมตร, ทิศทาง #{dir_str}" # Changed text to meters
       Sketchup.set_status_text(status, SB_PROMPT)
     end
   end
@@ -330,18 +330,18 @@ module MyFacePusher
         <div class="container">
           <h1>Face Pusher Tool</h1>
           
-          <label for="distance">ระยะดัน/ดึง (มม.):</label>
-          <input id="distance" type="number" min="1" step="1" value="100">
+          <label for="distance">ระยะดัน/ดึง (เมตร):</label> // Changed text to meters
+          <input id="distance" type="number" min="0.01" step="0.01" value="0.1"> // Changed default value and step for meters
           
           <div class="btn-group">
             <button id="plus">+ </button>
             <button id="minus">- </button>
           </div>
           
-          <button id="toggle_tool">เปิดปิการใช้งาน Tool</button>
+          <button id="toggle_tool">เปิดปิดการใช้งาน Tool</button>
           <p >สามารถเช็คด่านล่างซ่ายว่า เปิด/ปิด tool แล้ว <br>
-            (ตัวอย่าง) ให้กดที่ .เปิดปิการใช้งาน Tool. หากปิดอยู๋จะขึ้่นว่า <br>
-            Click or drag to select objects. <br>  Shift = Add/Subtract. <br>Ctrl = Add. Shift + Ctrl = Subtract.
+            (ตัวอย่าง) ให้กดที่ .เปิดปิดการใช้งาน Tool. หากปิดอยู๋จะขึ้่นว่า <br>
+            Click or drag to select objects. <br> Shift = Add/Subtract. <br>Ctrl = Add. Shift + Ctrl = Subtract.
           </p>
           <button id="move_up_btn">โหมดเคลื่อนย้ายด้วยเมาส์</button>
           
@@ -381,7 +381,7 @@ module MyFacePusher
             const value = parseFloat(this.value);
             if (isNaN(value) || value <= 0) {
               showError('กรุณาใส่ระยะที่ถูกต้อง (มากกว่า 0)');
-              this.value = 100;
+              this.value = 0.1; // Changed default value to 0.1 for meters
               return;
             }
             this.classList.add('highlight');
