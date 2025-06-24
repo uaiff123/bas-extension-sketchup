@@ -142,4 +142,4 @@ unless defined?($interactive_pipe_tool_loaded)
   toolbar.add_item cmd
   toolbar.show
   $interactive_pipe_tool_loaded = true
-end
+end 
