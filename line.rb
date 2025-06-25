@@ -18,6 +18,9 @@ class InteractivePipeTool
     @active = true
     @view.tooltip = "Click to start pipe. Enter to finish. Type length for exact distance. 'b' for bulge."
     @view.invalidate
+    
+    # Set pencil cursor
+    UI.set_cursor(IDC_PENCIL)
   end
 
   def deactivate(view)
@@ -29,6 +32,7 @@ class InteractivePipeTool
   def resume(view)
     @active = true
     view.invalidate
+    UI.set_cursor(IDC_PENCIL)
   end
 
   def suspend(view)
@@ -98,14 +102,39 @@ class InteractivePipeTool
       end
     end
     
-    # Handle length input
+    # Handle length input in meters
     begin
-      value = text.to_l
-      if value > 0
-        @length_input = value
-        view.tooltip = "Length: #{@length_input}"
+      # Try to parse input as meters
+      if text.include?(',')
+        # Handle coordinate input (x,y)
+        parts = text.split(',')
+        if parts.length == 2
+          x = parts[0].to_l
+          y = parts[1].to_l
+          if !@points.empty?
+            base_point = @points.last
+            # Get current view vectors
+            camera = view.camera
+            right = camera.xaxis
+            up = camera.yaxis
+            
+            # Create new point relative to base point
+            @override_position = base_point + (right * x) + (up * y)
+            @length_input = nil
+            view.tooltip = "Position: #{x}m, #{y}m"
+            view.invalidate
+            return
+          end
+        end
       else
-        @length_input = nil
+        # Handle single length value
+        value = text.to_l
+        if value > 0
+          @length_input = value
+          view.tooltip = "Length: #{@length_input}m"
+        else
+          @length_input = nil
+        end
       end
     rescue
       @length_input = nil
@@ -182,8 +211,8 @@ class InteractivePipeTool
       if @bulge_distance != 0
         draw_preview_curve(view, start_point, end_point, @bulge_distance)
       else
+        # Only draw one preview line (removed the extra cylinder preview)
         draw_preview_line(view, start_point, end_point)
-        draw_preview_cylinder(view, start_point, end_point, HIGHLIGHT_COLOR)
       end
     end
   end
@@ -220,6 +249,11 @@ class InteractivePipeTool
       face.followme(path)
       path.erase!
     end
+    
+    # Smooth joints between segments
+    if @points.length > 2
+      smooth_joints(entities)
+    end
   end
   
   def create_pipe_profile(entities, point, vector)
@@ -245,51 +279,13 @@ class InteractivePipeTool
   def draw_preview_curve(view, start_point, end_point, bulge)
     curve_points = generate_curve_points(start_point, end_point, bulge)
     view.drawing_color = HIGHLIGHT_COLOR
-    view.line_width = 3
+    view.line_width = 9  # Thicker line
     view.draw(GL_LINE_STRIP, curve_points)
-  end
-
-  def draw_preview_cylinder(view, start_point, end_point, color)
-    vector = end_point - start_point
-    return if vector.length == 0
-
-    # Find perpendicular axis
-    axis = if vector.parallel?(Z_AXIS)
-             X_AXIS
-           else
-             vector * Z_AXIS
-           end
-
-    tr = Geom::Transformation.rotation(start_point, axis, vector.angle_between(axis))
-
-    # Create circle points
-    circle_points = []
-    PIPE_SIDES.times do |i|
-      angle = 2 * Math::PI * i / PIPE_SIDES
-      circle_points << Geom::Point3d.new(PIPE_RADIUS * Math.cos(angle), PIPE_RADIUS * Math.sin(angle), 0)
-    end
-
-    # Transform circle to position
-    start_circle = circle_points.map { |pt| pt.transform(tr) }
-    end_circle = circle_points.map { |pt| pt.transform(tr) + vector }
-
-    # Draw cylinder
-    view.drawing_color = color
-    view.line_width = 1
-    
-    # Draw end circles
-    view.draw(GL_LINE_LOOP, start_circle)
-    view.draw(GL_LINE_LOOP, end_circle)
-    
-    # Draw connecting lines
-    PIPE_SIDES.times do |i|
-      view.draw(GL_LINES, [start_circle[i], end_circle[i]])
-    end
   end
 
   def draw_preview_line(view, start_point, end_point)
     view.drawing_color = HIGHLIGHT_COLOR
-    view.line_width = 3
+    view.line_width = 9  # Thicker line (3x original)
     view.draw(GL_LINES, [start_point, end_point])
   end
 
@@ -307,6 +303,28 @@ class InteractivePipeTool
       circle_points << point
     end
     circle_points
+  end
+
+  def smooth_joints(entities)
+    # Find all edges in the pipe group
+    edges = entities.grep(Sketchup::Edge)
+    
+    # Group edges by their connected faces
+    edge_groups = {}
+    edges.each do |edge|
+      edge.faces.each do |face|
+        edge_groups[face] ||= []
+        edge_groups[face] << edge
+      end
+    end
+    
+    # Smooth edges that are part of the same face
+    edge_groups.each do |face, face_edges|
+      face_edges.each do |edge|
+        edge.soft = true
+        edge.smooth = true
+      end
+    end
   end
 
   def commit_and_reset
